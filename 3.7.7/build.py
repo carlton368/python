@@ -25,11 +25,15 @@ def main():
 
     # Python 컴파일 및 설치
     os.chdir(f"Python-{python_version}")
-    subprocess.check_call(["./configure", f"--prefix={install_dir}"])
+    subprocess.check_call([
+        "./configure",
+        f"--prefix={install_dir}",
+        "--enable-shared"
+    ])
     subprocess.check_call(["make"])
     subprocess.check_call(["make", "install"])
-
     print(f"Python {python_version} successfully built and installed to {install_dir}.")
+
 
 if __name__ == "__main__":
     main()
