@@ -14,7 +14,7 @@ def commands():
     python_executable = os.path.join(python_bin_dir, "python3.7")
     python_symlink = os.path.join(python_bin_dir, "python")
     python3_symlink = os.path.join(python_bin_dir, "python3")
-    if not os.path.exist(python_symlink):
+    if not os.path.exists(python_symlink):
         os.symlink(python_executable, python_symlink)
 
 build_command = "cmake -DCMAKE_INSTALL_PREFIX={root} {root} && cmake --build . --target install_python"
