@@ -1,78 +1,92 @@
-#import os
+import os
+import sys
+import subprocess
+import urllib.request
+import tarfile
+import shutil
 
-# current_path = os.environ.get('PWD')
-# current_dirname = os.path.dirname(current_path)
+class PythonBuilder:
+    def __init__(self):
+        self.python_version = "3.7.7"
+        self.python_url = f"https://www.python.org/ftp/python/{self.python_version}/Python-{self.python_version}.tgz"
+        
+        # 현재 스크립트가 있는 디렉토리에 'python_install' 폴더 생성
+        self.install_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'python_install')
+        
+        self.source_dir = os.path.join(os.getcwd(), "Python-source")
+        self.build_dir = os.path.join(os.getcwd(), "Python-build")
 
-# 패키지 이름 정의
-name = "python"
+    def download_source(self):
+        print(f"Python {self.python_version} 소스 코드 다운로드 중...")
+        if os.path.exists(self.source_dir):
+            shutil.rmtree(self.source_dir)
+        os.makedirs(self.source_dir)
+        source_file, _ = urllib.request.urlretrieve(self.python_url)
+        with tarfile.open(source_file, 'r:gz') as tar:
+            tar.extractall(path=self.source_dir)
+        os.remove(source_file)
+        print("다운로드 및 압축 해제 완료")
 
-# Python 버전 정의
-version = "3.7.7"
+    def configure(self):
+        print("Python 빌드 설정 중...")
+        if os.path.exists(self.build_dir):
+            shutil.rmtree(self.build_dir)
+        os.makedirs(self.build_dir)
+        os.chdir(self.build_dir)
+        configure_command = [
+            os.path.join(self.source_dir, f"Python-{self.python_version}", "configure"),
+            f"--prefix={self.install_path}",
+            "--enable-shared",
+            "--with-ensurepip=install"
+        ]
+        subprocess.run(configure_command, check=True)
+        print("빌드 설정 완료")
 
-# 패키지 작성자 리스트
-authors = ["wonjin LEE"]
+    def build(self):
+        print("Python 빌드 중...")
+        subprocess.run(["make", "-j4"], check=True)
+        print("빌드 완료")
 
-# 패키지에 대한 간단한 설명
-description = "Python programming language"
+    def install(self):
+        print("Python 설치 중...")
+        if os.path.exists(self.install_path):
+            shutil.rmtree(self.install_path)
+        os.makedirs(self.install_path, exist_ok=True)
+        subprocess.run(["make", "install"], check=True)
+        print(f"Python {self.python_version} 설치 완료")
 
-# 패키지에 포함된 도구들의 리스트
-tools = [
-    "python",
-    "python3",
-    "pip",
-    "pip3"
-]
+    def create_symlinks(self):
+        print("심볼릭 링크 생성 중...")
+        bin_dir = os.path.join(self.install_path, "bin")
+        python_exec = os.path.join(bin_dir, f"python{self.python_version.rsplit('.', 1)[0]}")
+        python_symlink = os.path.join(bin_dir, "python")
+        if os.path.exists(python_exec) and not os.path.exists(python_symlink):
+            os.symlink(python_exec, python_symlink)
+        print("심볼릭 링크 생성 완료")
 
-# 런타임 의존성 정의
-# 이 패키지는 Linux x86_64 플랫폼에서 실행됨
-requires = [
-    "platform-linux",
-    "arch-x86_64"
-]
+    def cleanup(self):
+        print("정리 중...")
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+        shutil.rmtree(self.source_dir)
+        shutil.rmtree(self.build_dir)
+        print("정리 완료")
 
-# 빌드 시 필요한 의존성 정의
-build_requires = [
-    "cmake-3.10+",  # CMake 3.10 이상 버전 필요
-    "make",         # make 빌드 도구 필요
-    "gcc"           # GCC 컴파일러 필요
-]
+    def run(self):
+        try:
+            self.download_source()
+            self.configure()
+            self.build()
+            self.install()
+            self.create_symlinks()
+            self.cleanup()
+            print(f"Python {self.python_version}이 {self.install_path}에 성공적으로 설치되었습니다.")
+            print(f"이 Python 버전을 사용하려면 다음 명령을 실행하세요:")
+            print(f"export PATH={self.install_path}/bin:$PATH")
+            print(f"export LD_LIBRARY_PATH={self.install_path}/lib:$LD_LIBRARY_PATH")
+        except Exception as e:
+            print(f"오류 발생: {e}")
+            sys.exit(1)
 
-# 지원하는 플랫폼 변형 정의
-variants = [
-    ["platform-linux", "arch-x86_64"]
-]
-
-# 환경 설정을 위한 명령어 함수
-def commands():
-    # PATH 환경 변수에 bin 디렉토리 추가
-    env.PATH.prepend("{root}/bin")
-    
-    # PYTHONPATH에 사이트 패키지 디렉토리 추가
-    env.PYTHONPATH.prepend("{root}/lib/python3.7/site-packages")
-    
-    # LD_LIBRARY_PATH에 lib 디렉토리 추가
-    env.LD_LIBRARY_PATH.prepend("{root}/lib")
-    
-    import os
-    
-    # Python 실행 파일 경로 설정
-    python_bin_dir = os.path.join(str(env.REZ_PYTHON_ROOT), "bin")
-    python_executable = os.path.join(python_bin_dir, "python3.7")
-    python_symlink = os.path.join(python_bin_dir, "python")
-    
-    # python3.7에서 python으로의 심볼릭 링크 생성
-    if os.path.exists(python_executable) and not os.path.exists(python_symlink):
-        os.symlink(python_executable, python_symlink)
-        print(f"Created symlink: {python_symlink} -> {python_executable}")
-    elif not os.path.exists(python_executable):
-        print(f"Error: {python_executable} does not exist.")
-    else:
-        print(f"Symlink {python_symlink} already exists.")
-
-# 빌드 명령어 정의
-build_command = "python3 {root}/build.py"
-
-# 빌드 전 실행될 명령어 함수
-def pre_build_commands():
-    # 빌드 설정을 Release로 설정
-    env.REZ_BUILD_CONFIG = "Release"
+if __name__ == "__main__":
+    builder = PythonBuilder()
+    builder.run()

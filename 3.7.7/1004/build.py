@@ -1,82 +1,78 @@
 import os
 import sys
 import subprocess
-import hashlib
-import tarfile
 import urllib.request
-from pathlib import Path
+import tarfile
 
 class PythonBuilder:
     def __init__(self):
-        self.python_version = "3.7.7" 
+        # Python 버전과 다운로드 URL 설정
+        self.python_version = "3.7.7"
         self.python_url = f"https://www.python.org/ftp/python/{self.python_version}/Python-{self.python_version}.tgz"
-        self.python_sha256 = "8c8be91cd2648a1a0c251f04ea0bb4c2a5570feb9c45eaaa2241c785585b475a" # SHA256 hash(링크에 있는 파일의 해시값)
-        self.install_prefix = os.environ.get('REZ_BUILD_INSTALL_PATH', '/usr/local') 
-        self.source_dir = Path('Python-source') # 현재 디렉토리에 있는 'Python-source'를 의미 (존재여부 상관 없음) 
-        self.build_dir = Path('Python-build')
+        
+        # 설치 경로 설정 (기본값은 /usr/local)
+        self.install_path = os.environ.get('PYTHON_INSTALL_PATH', '/usr/local')
+        
+        # 소스 코드와 빌드 디렉토리 이름 설정
+        self.source_dir = "Python-source"
+        self.build_dir = "Python-build"
 
     def download_source(self):
-        """
-        Download Python source code if it doesn't already exist.
-        """
+        print(f"Python {self.python_version} 소스 코드 다운로드 중...")
         
-        if not self.source_dir.exists():    # 'Python-source' 디렉토리가 존재하지 않으면
-            print(f"!Downloading Python {self.python_version}...!")
-            filename, _ = urllib.request.urlretrieve(self.python_url)
-            
-            # Verify SHA256
-            sha256_hash = hashlib.sha256()
-            with open(filename, "rb") as f:
-                for byte_block in iter(lambda: f.read(4096), b""):
-                    sha256_hash.update(byte_block)
-            if sha256_hash.hexdigest() != self.python_sha256:
-                raise ValueError("!Downloaded file hash does not match expected hash!")
-            
-            # Extract
-            with tarfile.open(filename, 'r:gz') as tar:
-                tar.extractall(path=self.source_dir)
-            
-            os.remove(filename)
-        else:
-            print("Source directory already exists, skipping download.")
+        # 소스 코드 다운로드
+        source_file, _ = urllib.request.urlretrieve(self.python_url)
+        
+        # 다운로드한 파일 압축 해제
+        with tarfile.open(source_file, 'r:gz') as tar:
+            tar.extractall(path=self.source_dir)
+        
+        print("다운로드 및 압축 해제 완료")
 
     def configure(self):
+        print("Python 빌드 설정 중...")
+        
+        # 빌드 디렉토리 생성
         os.makedirs(self.build_dir, exist_ok=True)
         os.chdir(self.build_dir)
-        configure_cmd = [
-            f"{self.source_dir}/Python-{self.python_version}/configure",
-            f"--prefix={self.install_prefix}",
+        
+        # configure 스크립트 실행
+        configure_command = [
+            f"../{self.source_dir}/Python-{self.python_version}/configure",
+            f"--prefix={self.install_path}",
             "--enable-shared",
             "--with-ensurepip=install"
         ]
-        subprocess.run(configure_cmd, check=True)
+        subprocess.run(configure_command, check=True)
+        
+        print("빌드 설정 완료")
 
     def build(self):
+        print("Python 빌드 중...")
+        
+        # make 명령어로 빌드
         subprocess.run(["make", "-j4"], check=True)
+        
+        print("빌드 완료")
 
     def install(self):
-        subprocess.run(["make", "install"], check=True)
-
-    def create_symlinks(self):
-        bin_dir = Path(self.install_prefix) / "bin"
-        python_executable = bin_dir / f"python{self.python_version.rsplit('.', 1)[0]}"
-        python_symlink = bin_dir / "python"
+        print("Python 설치 중...")
         
-        if python_executable.exists() and not python_symlink.exists():
-            os.symlink(python_executable, python_symlink)
-            print(f"Created symlink: {python_symlink} -> {python_executable}")
-        elif not python_executable.exists():
-            print(f"Error: {python_executable} does not exist.")
-        else:
-            print(f"Symlink {python_symlink} already exists.")
+        # make install 명령어로 설치
+        subprocess.run(["make", "install"], check=True)
+        
+        print(f"Python {self.python_version} 설치 완료")
 
     def run(self):
-        self.download_source()
-        self.configure()
-        self.build()
-        self.install()
-        self.create_symlinks()
-        print(f"Python {self.python_version} installation complete.")
+        try:
+            self.download_source()
+            self.configure()
+            self.build()
+            self.install()
+            print(f"Python {self.python_version}이 {self.install_path}에 성공적으로 설치되었습니다.")
+        except Exception as e:
+            print(f"오류 발생: {e}")
+            sys.exit(1)
 
 if __name__ == "__main__":
     builder = PythonBuilder()
