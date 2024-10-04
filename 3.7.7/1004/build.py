@@ -8,16 +8,20 @@ from pathlib import Path
 
 class PythonBuilder:
     def __init__(self):
-        self.python_version = "3.7.7"
+        self.python_version = "3.7.7" 
         self.python_url = f"https://www.python.org/ftp/python/{self.python_version}/Python-{self.python_version}.tgz"
-        self.python_sha256 = "8c8be91cd2648a1a0c251f04ea0bb4c2a5570feb9c45eaaa2241c785585b475a"
-        self.install_prefix = os.environ.get('REZ_BUILD_INSTALL_PATH', '/usr/local')
-        self.source_dir = Path('Python-source')
+        self.python_sha256 = "8c8be91cd2648a1a0c251f04ea0bb4c2a5570feb9c45eaaa2241c785585b475a" # SHA256 hash(링크에 있는 파일의 해시값)
+        self.install_prefix = os.environ.get('REZ_BUILD_INSTALL_PATH', '/usr/local') 
+        self.source_dir = Path('Python-source') # 현재 디렉토리에 있는 'Python-source'를 의미 (존재여부 상관 없음) 
         self.build_dir = Path('Python-build')
 
     def download_source(self):
-        if not self.source_dir.exists():
-            print(f"Downloading Python {self.python_version}...")
+        """
+        Download Python source code if it doesn't already exist.
+        """
+        
+        if not self.source_dir.exists():    # 'Python-source' 디렉토리가 존재하지 않으면
+            print(f"!Downloading Python {self.python_version}...!")
             filename, _ = urllib.request.urlretrieve(self.python_url)
             
             # Verify SHA256
@@ -26,7 +30,7 @@ class PythonBuilder:
                 for byte_block in iter(lambda: f.read(4096), b""):
                     sha256_hash.update(byte_block)
             if sha256_hash.hexdigest() != self.python_sha256:
-                raise ValueError("Downloaded file hash does not match expected hash")
+                raise ValueError("!Downloaded file hash does not match expected hash!")
             
             # Extract
             with tarfile.open(filename, 'r:gz') as tar:
